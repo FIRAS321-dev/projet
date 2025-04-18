@@ -2,159 +2,252 @@ import 'package:flutter/material.dart';
 import 'package:edubridge/theme/app_theme.dart';
 
 class TimetableWidget extends StatelessWidget {
-  final List<Map<String, dynamic>> events;
+  final bool isTeacher;
 
   const TimetableWidget({
     Key? key,
-    required this.events,
+    this.isTeacher = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    // Jours de la semaine
+    final List<String> days = [
+      'Lundi',
+      'Mardi',
+      'Mercredi',
+      'Jeudi',
+      'Vendredi',
+      'Samedi'
+    ];
+
+    // Heures de cours
+    final List<String> hours = [
+      '8:00',
+      '10:00',
+      '12:00',
+      '14:00',
+      '16:00',
+      '18:00'
+    ];
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Emploi du temps',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Emploi du temps',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (isTeacher)
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _showAddSessionDialog(context);
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Ajouter'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tableau d'emploi du temps
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: MaterialStateProperty.all(
+                    AppTheme.primaryColor.withOpacity(0.1),
+                  ),
+                  dataRowMaxHeight: 80,
+                  columns: [
+                    const DataColumn(
+                      label: Text(
+                        'Heures',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    ...days
+                        .map((day) => DataColumn(
+                              label: Text(
+                                day,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ))
+                        .toList(),
+                  ],
+                  rows: hours.map((hour) {
+                    return DataRow(
+                      cells: [
+                        DataCell(Text(hour)),
+                        ...days
+                            .map((day) => DataCell(
+                                  _buildEmptyCell(context),
+                                ))
+                            .toList(),
+                      ],
+                    );
+                  }).toList(),
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  // Navigation vers l'écran d'emploi du temps complet
+            ),
+
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                isTeacher
+                    ? 'Cliquez sur "Ajouter" pour planifier un cours'
+                    : 'Votre emploi du temps sera affiché ici',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCell(BuildContext context) {
+    return InkWell(
+      onTap: isTeacher ? () => _showAddSessionDialog(context) : null,
+      child: Container(
+        height: 60,
+        width: 120,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Icon(
+            isTeacher ? Icons.add_circle_outline : null,
+            color: Colors.grey.shade400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddSessionDialog(BuildContext context) {
+    if (!isTeacher) return;
+
+    final TextEditingController titleController = TextEditingController();
+    final TextEditingController roomController = TextEditingController();
+    String selectedDay = 'Lundi';
+    String selectedTime = '8:00';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ajouter un cours'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Titre du cours',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Jour',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedDay,
+                items: [
+                  'Lundi',
+                  'Mardi',
+                  'Mercredi',
+                  'Jeudi',
+                  'Vendredi',
+                  'Samedi'
+                ]
+                    .map((day) => DropdownMenuItem(
+                          value: day,
+                          child: Text(day),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    selectedDay = value;
+                  }
                 },
-                child: const Text('Voir tout'),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Heure',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedTime,
+                items: ['8:00', '10:00', '12:00', '14:00', '16:00', '18:00']
+                    .map((time) => DropdownMenuItem(
+                          value: time,
+                          child: Text(time),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    selectedTime = value;
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: roomController,
+                decoration: const InputDecoration(
+                  labelText: 'Salle',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          events.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'Aucun événement à venir',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: events.length > 3 ? 3 : events.length,
-                  itemBuilder: (context, index) {
-                    final event = events[index];
-                    return _EventCard(
-                      title: event['title'],
-                      time: event['time'],
-                      date: event['date'],
-                      color: _getColorForEventType(event['type']),
-                    );
-                  },
-                ),
-        ],
-      ),
-    );
-  }
-
-  Color _getColorForEventType(String type) {
-    switch (type) {
-      case 'course':
-        return AppTheme.primaryColor;
-      case 'exam':
-        return AppTheme.errorColor;
-      case 'assignment':
-        return AppTheme.warningColor;
-      default:
-        return AppTheme.secondaryColor;
-    }
-  }
-}
-
-class _EventCard extends StatelessWidget {
-  final String title;
-  final String time;
-  final String date;
-  final Color color;
-
-  const _EventCard({
-    Key? key,
-    required this.title,
-    required this.time,
-    required this.date,
-    required this.color,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.isNotEmpty) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cours ajouté avec succès!'),
+                    backgroundColor: AppTheme.successColor,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$date • $time',
-                  style: TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.arrow_forward_ios,
-            size: 16,
-            color: AppTheme.textSecondaryColor,
+                );
+              }
+            },
+            child: const Text('Ajouter'),
           ),
         ],
       ),
     );
   }
 }
-

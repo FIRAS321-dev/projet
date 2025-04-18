@@ -1,34 +1,19 @@
 name: edubridge
-description: Une plateforme éducative pour connecter enseignants et étudiants.
+description: Une application éducative pour connecter les enseignants et les étudiants.
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=2.19.0 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
   provider: ^6.0.5
-  shared_preferences: ^2.1.1
+  shared_preferences: ^2.2.0
   intl: ^0.18.1
-  flutter_svg: ^2.0.5
-  image_picker: ^0.8.7+5
-  path_provider: ^2.0.15
-  url_launcher: ^6.1.11
-  flutter_local_notifications: ^14.1.1
-
-  # Firebase
-  firebase_core: ^2.13.1
-  firebase_auth: ^4.6.2
-  cloud_firestore: ^4.8.0
-  firebase_storage: ^11.2.2
-  firebase_messaging: ^14.6.2
-
-  # Connectivité
-  connectivity_plus: ^4.0.1
-  internet_connection_checker: ^1.0.0+1
+  image_picker: ^1.0.4
 
 dev_dependencies:
   flutter_test:
@@ -37,9 +22,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  # Assurez-vous que cette section est correctement indentée
-  assets:
-    - assets/images/
-    - assets/icons/
+  # Commenté les assets qui n'existent pas encore
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
 

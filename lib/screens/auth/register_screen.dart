@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:edubridge/theme/app_theme.dart';
+import 'package:edubridge/widgets/custom_button.dart';
+import 'package:edubridge/widgets/custom_text_field.dart';
+import 'package:provider/provider.dart';
+import 'package:edubridge/services/auth_service.dart';
+import 'package:edubridge/screens/student/student_dashboard.dart';
+import 'package:edubridge/screens/teacher/teacher_dashboard.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -14,8 +20,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String _selectedRole = 'student';
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+  String _userType = 'student'; // Default to student
 
   @override
   void dispose() {
@@ -32,12 +40,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _isLoading = true;
       });
 
-      // Simuler un délai d'inscription
-      await Future.delayed(const Duration(seconds: 1));
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final success = await authService.register(_emailController.text,
+            _passwordController.text, _nameController.text, _userType);
 
-      // Rediriger vers l'écran de connexion
-      if (mounted) {
-        Navigator.of(context).pop();
+        if (mounted) {
+          if (success) {
+            // Naviguer vers le tableau de bord approprié
+            if (_userType == 'student') {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (context) => const StudentDashboard()),
+              );
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (context) => const TeacherDashboard()),
+              );
+            }
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Erreur lors de l\'inscription. Veuillez réessayer.'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur d\'inscription: ${e.toString()}'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -47,6 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inscription'),
+        elevation: 0,
       ),
       body: SafeArea(
         child: Center(
@@ -58,54 +105,108 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
-                  Image.asset(
-                    'assets/images/logo.png',
-                    width: 100,
-                    height: 100,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                  Text(
+                    'Créer un compte',
+                    style: Theme.of(context).textTheme.displayMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Rejoignez EduBridge pour accéder à toutes les ressources',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+
+                  // User Type Selection
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
                         ),
-                        child: const Center(
-                          child: Text(
-                            'EB',
-                            style: TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _userType = 'student';
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _userType == 'student'
+                                    ? AppTheme.primaryColor
+                                    : Colors.transparent,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  bottomLeft: Radius.circular(12),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Étudiant',
+                                  style: TextStyle(
+                                    color: _userType == 'student'
+                                        ? Colors.white
+                                        : AppTheme.textSecondaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Titre
-                  const Text(
-                    'Créer un compte',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _userType = 'teacher';
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _userType == 'teacher'
+                                    ? AppTheme.primaryColor
+                                    : Colors.transparent,
+                                borderRadius: const BorderRadius.only(
+                                  topRight: Radius.circular(12),
+                                  bottomRight: Radius.circular(12),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Enseignant',
+                                  style: TextStyle(
+                                    color: _userType == 'teacher'
+                                        ? Colors.white
+                                        : AppTheme.textSecondaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  
-                  // Champ nom
-                  TextFormField(
+
+                  // Name Field
+                  CustomTextField(
                     controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom complet',
-                      hintText: 'Entrez votre nom complet',
-                      prefixIcon: Icon(Icons.person_outline),
-                      border: OutlineInputBorder(),
-                    ),
+                    hintText: 'Nom complet',
+                    prefixIcon: Icons.person_outline,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Veuillez entrer votre nom';
@@ -114,42 +215,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Champ email
-                  TextFormField(
+
+                  // Email Field
+                  CustomTextField(
                     controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'Entrez votre email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(),
-                    ),
+                    hintText: 'Email',
+                    prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Veuillez entrer votre email';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value)) {
                         return 'Veuillez entrer un email valide';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Champ mot de passe
-                  TextFormField(
+
+                  // Password Field
+                  CustomTextField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Mot de passe',
-                      hintText: 'Entrez votre mot de passe',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(),
+                    hintText: 'Mot de passe',
+                    prefixIcon: Icons.lock_outline,
+                    obscureText: !_isPasswordVisible,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
                     ),
-                    obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer un mot de passe';
+                        return 'Veuillez entrer votre mot de passe';
                       }
                       if (value.length < 6) {
                         return 'Le mot de passe doit contenir au moins 6 caractères';
@@ -158,17 +265,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Champ confirmation mot de passe
-                  TextFormField(
+
+                  // Confirm Password Field
+                  CustomTextField(
                     controller: _confirmPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirmer le mot de passe',
-                      hintText: 'Confirmez votre mot de passe',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(),
+                    hintText: 'Confirmer le mot de passe',
+                    prefixIcon: Icons.lock_outline,
+                    obscureText: !_isConfirmPasswordVisible,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isConfirmPasswordVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isConfirmPasswordVisible =
+                              !_isConfirmPasswordVisible;
+                        });
+                      },
                     ),
-                    obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Veuillez confirmer votre mot de passe';
@@ -179,74 +296,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  
-                  // Sélection du rôle
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Rôle',
-                      prefixIcon: Icon(Icons.person_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedRole,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'student',
-                        child: Text('Étudiant'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'teacher',
-                        child: Text('Enseignant'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRole = value!;
-                      });
-                    },
+                  const SizedBox(height: 32),
+
+                  // Register Button
+                  CustomButton(
+                    text: 'S\'inscrire',
+                    isLoading: _isLoading,
+                    onPressed: _register,
                   ),
                   const SizedBox(height: 24),
-                  
-                  // Bouton d'inscription
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _register,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'S\'inscrire',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Lien de connexion
+
+                  // Login Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Vous avez déjà un compte?',
-                        style: TextStyle(color: AppTheme.textSecondaryColor),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).pop();
+                          Navigator.pop(context);
                         },
-                        child: const Text('Se connecter'),
+                        child: Text(
+                          'Se connecter',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -259,4 +337,3 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-

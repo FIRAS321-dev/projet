@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:edubridge/screens/auth/register_screen.dart';
+import 'package:edubridge/screens/auth/forgot_password_screen.dart';
 import 'package:edubridge/screens/student/student_dashboard.dart';
 import 'package:edubridge/screens/teacher/teacher_dashboard.dart';
 import 'package:edubridge/screens/admin/admin_dashboard.dart';
+import 'package:edubridge/theme/app_theme.dart';
 import 'package:edubridge/widgets/custom_button.dart';
 import 'package:edubridge/widgets/custom_text_field.dart';
-import 'package:edubridge/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:edubridge/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -14,17 +17,41 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  String _errorMessage = '';
+  bool _isPasswordVisible = false;
+  String _userType = 'student'; // Default to student
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeIn,
+      ),
+    );
+
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -32,43 +59,71 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
-        _errorMessage = '';
       });
 
-      // Simuler un délai de connexion
-      await Future.delayed(const Duration(seconds: 1));
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
 
-      // Logique de connexion simplifiée pour la démo
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
+        // Mettre à jour le type d'utilisateur dans le service d'authentification
+        // en fonction de la sélection de l'utilisateur
+        if (_emailController.text.contains('admin')) {
+          _userType = 'admin';
+        } else if (_emailController.text.contains('teacher') ||
+            _userType == 'teacher') {
+          _userType = 'teacher';
+        } else {
+          _userType = 'student';
+        }
 
-      if (email == 'admin@edubridge.com' && password == 'Admin123!') {
-        // Rediriger vers le tableau de bord admin
+        final success = await authService.signIn(
+            _emailController.text,
+            _passwordController.text,
+            _userType // Passer le type d'utilisateur au service d'authentification
+            );
+
         if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+          if (success) {
+            // Naviguer en fonction du type d'utilisateur
+            final userType = authService.userType;
+
+            if (userType == 'admin') {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AdminDashboard()),
+              );
+            } else if (userType == 'teacher') {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (context) => const TeacherDashboard()),
+              );
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                    builder: (context) => const StudentDashboard()),
+              );
+            }
+          } else {
+            // Afficher un message d'erreur
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Identifiants incorrects. Veuillez réessayer.'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur de connexion: ${e.toString()}'),
+              backgroundColor: AppTheme.errorColor,
+            ),
           );
         }
-      } else if (email == 'prof@edubridge.com' && password == 'Prof123!') {
-        // Rediriger vers le tableau de bord enseignant
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const TeacherDashboard()),
-          );
-        }
-      } else if (email == 'etudiant@edubridge.com' && password == 'Etudiant123!') {
-        // Rediriger vers le tableau de bord étudiant
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const StudentDashboard()),
-          );
-        }
-      } else {
-        // Afficher une erreur
+      } finally {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Email ou mot de passe incorrect';
           });
         }
       }
@@ -79,163 +134,244 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo
-                  Image.asset(
-                    'assets/images/logo.png',
-                    width: 120,
-                    height: 120,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 120,
-                        height: 120,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Logo and Title
+                    Center(
+                      child: Container(
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                          color: AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Center(
-                          child: Text(
-                            'EB',
-                            style: TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
+                        child: const Icon(
+                          Icons.school,
+                          size: 40,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Bienvenue sur EduBridge',
+                      style: Theme.of(context).textTheme.displayMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Connectez-vous pour accéder à votre espace',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+
+                    // User Type Selection
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _userType = 'student';
+                                });
+                              },
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _userType == 'student'
+                                      ? AppTheme.primaryColor
+                                      : Colors.transparent,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    bottomLeft: Radius.circular(12),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Étudiant',
+                                    style: TextStyle(
+                                      color: _userType == 'student'
+                                          ? Colors.white
+                                          : AppTheme.textSecondaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Titre
-                  const Text(
-                    'Connexion',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Sous-titre
-                  const Text(
-                    'Bienvenue sur EduBridge',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Message d'erreur
-                  if (_errorMessage.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _errorMessage,
-                        style: const TextStyle(
-                          color: AppTheme.errorColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _userType = 'teacher';
+                                });
+                              },
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _userType == 'teacher'
+                                      ? AppTheme.primaryColor
+                                      : Colors.transparent,
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(12),
+                                    bottomRight: Radius.circular(12),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Enseignant',
+                                    style: TextStyle(
+                                      color: _userType == 'teacher'
+                                          ? Colors.white
+                                          : AppTheme.textSecondaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  if (_errorMessage.isNotEmpty) const SizedBox(height: 16),
-                  
-                  // Champ email
-                  CustomTextField(
-                    controller: _emailController,
-                    labelText: 'Email',
-                    hintText: 'Entrez votre email',
-                    prefixIcon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre email';
-                      }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                        return 'Veuillez entrer un email valide';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Champ mot de passe
-                  CustomTextField(
-                    controller: _passwordController,
-                    labelText: 'Mot de passe',
-                    hintText: 'Entrez votre mot de passe',
-                    prefixIcon: Icons.lock_outline,
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre mot de passe';
-                      }
-                      if (value.length < 6) {
-                        return 'Le mot de passe doit contenir au moins 6 caractères';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Lien mot de passe oublié
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        // Navigation vers l'écran de récupération de mot de passe
+                    const SizedBox(height: 24),
+
+                    // Email Field
+                    CustomTextField(
+                      controller: _emailController,
+                      hintText: 'Email',
+                      prefixIcon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre email';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                            .hasMatch(value)) {
+                          return 'Veuillez entrer un email valide';
+                        }
+                        return null;
                       },
-                      child: const Text('Mot de passe oublié?'),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Bouton de connexion
-                  CustomButton(
-                    text: 'Se connecter',
-                    isLoading: _isLoading,
-                    onPressed: _login,
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Lien d'inscription
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Vous n\'avez pas de compte?',
-                        style: TextStyle(color: AppTheme.textSecondaryColor),
-                      ),
-                      TextButton(
+                    const SizedBox(height: 16),
+
+                    // Password Field
+                    CustomTextField(
+                      controller: _passwordController,
+                      hintText: 'Mot de passe',
+                      prefixIcon: Icons.lock_outline,
+                      obscureText: !_isPasswordVisible,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _isPasswordVisible
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                         onPressed: () {
-                          Navigator.of(context).push(
+                          setState(() {
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        },
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre mot de passe';
+                        }
+                        if (value.length < 6) {
+                          return 'Le mot de passe doit contenir au moins 6 caractères';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Forgot Password
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
                             MaterialPageRoute(
-                              builder: (context) => const RegisterScreen(),
+                              builder: (context) =>
+                                  const ForgotPasswordScreen(),
                             ),
                           );
                         },
-                        child: const Text('S\'inscrire'),
+                        child: Text(
+                          'Mot de passe oublié?',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Login Button
+                    CustomButton(
+                      text: 'Se connecter',
+                      isLoading: _isLoading,
+                      onPressed: _login,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Register Link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Vous n\'avez pas de compte?',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'S\'inscrire',
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -244,4 +380,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

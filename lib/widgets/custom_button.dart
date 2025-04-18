@@ -6,10 +6,6 @@ class CustomButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isLoading;
   final bool isOutlined;
-  final Color? backgroundColor;
-  final Color? textColor;
-  final double? width;
-  final double? height;
   final IconData? icon;
 
   const CustomButton({
@@ -18,64 +14,64 @@ class CustomButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.isOutlined = false,
-    this.backgroundColor,
-    this.textColor,
-    this.width,
-    this.height,
     this.icon,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height ?? 50,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isOutlined 
-              ? Colors.transparent 
-              : backgroundColor ?? AppTheme.primaryColor,
-          foregroundColor: isOutlined 
-              ? (textColor ?? AppTheme.primaryColor) 
-              : (textColor ?? Colors.white),
-          elevation: isOutlined ? 0 : 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: isOutlined 
-                ? BorderSide(color: backgroundColor ?? AppTheme.primaryColor) 
-                : BorderSide.none,
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : Row(
+    final buttonStyle = isOutlined
+        ? OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryColor,
+            side: const BorderSide(color: AppTheme.primaryColor),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          )
+        : ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          );
+
+    final buttonChild = isLoading
+        ? const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              strokeWidth: 2,
+            ),
+          )
+        : icon != null
+            ? Row(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (icon != null) ...[
-                    Icon(icon),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Icon(icon),
+                  const SizedBox(width: 8),
+                  Text(text),
                 ],
-              ),
-      ),
+              )
+            : Text(text);
+
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: isOutlined
+          ? OutlinedButton(
+              onPressed: isLoading ? null : onPressed,
+              style: buttonStyle,
+              child: buttonChild,
+            )
+          : ElevatedButton(
+              onPressed: isLoading ? null : onPressed,
+              style: buttonStyle,
+              child: buttonChild,
+            ),
     );
   }
 }
-
