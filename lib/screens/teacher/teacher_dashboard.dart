@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:edubridge/theme/app_theme.dart';
 import 'package:edubridge/models/course.dart';
+// Question model now accessed through QuestionService
 import 'package:edubridge/screens/auth/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:edubridge/services/auth_service.dart';
+import 'package:edubridge/services/question_service.dart';
 import 'package:edubridge/widgets/custom_button.dart';
 import 'package:edubridge/screens/teacher/add_course_screen.dart';
 import 'package:edubridge/widgets/timetable_widget.dart';
@@ -807,20 +809,70 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   void _showQuestionsDialog() {
+    final questionService = Provider.of<QuestionService>(context, listen: false);
+    final unansweredQuestions = questionService.unansweredQuestions;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Questions des étudiants'),
         content: SizedBox(
           width: double.maxFinite,
-          height: 300,
-          child: Center(
-            child: _buildEmptyState(
-              icon: Icons.question_answer,
-              title: 'Aucune question',
-              message: 'Vous n\'avez aucune question pour le moment.',
-            ),
-          ),
+          height: 400,
+          child: unansweredQuestions.isEmpty
+              ? Center(
+                  child: _buildEmptyState(
+                    icon: Icons.question_answer,
+                    title: 'Aucune question',
+                    message: 'Vous n\'avez aucune question pour le moment.',
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: unansweredQuestions.length,
+                  itemBuilder: (context, index) {
+                    final question = unansweredQuestions[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.primaryColor,
+                          child: Text(
+                            question.studentName[0].toUpperCase(),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text(question.courseTitle),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(question.question),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Posée par ${question.studentName} - ${_formatDate(question.timestamp)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        isThreeLine: true,
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context); // Close this dialog
+                            _showAnswerDialog(question.studentName, question.question, question.id);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Répondre'),
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
         actions: [
           TextButton(
@@ -831,9 +883,25 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       ),
     );
   }
+  
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inMinutes < 60) {
+      return 'Il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
+    } else if (difference.inHours < 24) {
+      return 'Il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inDays < 7) {
+      return 'Il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
 
-  void _showAnswerDialog(String studentName, String question) {
+  void _showAnswerDialog(String studentName, String question, String questionId) {
     final TextEditingController answerController = TextEditingController();
+    final questionService = Provider.of<QuestionService>(context, listen: false);
 
     showDialog(
       context: context,
@@ -868,16 +936,25 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (answerController.text.isNotEmpty) {
-                Navigator.pop(context);
+            onPressed: () async {
+              if (answerController.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Réponse envoyée avec succès!'),
-                    backgroundColor: AppTheme.successColor,
+                    content: Text('Veuillez écrire une réponse'),
+                    backgroundColor: AppTheme.errorColor,
                   ),
                 );
+                return;
               }
+              // Mark the question as answered
+              await questionService.markAsAnswered(questionId);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Réponse envoyée avec succès!'),
+                  backgroundColor: AppTheme.successColor,
+                ),
+              );
             },
             child: const Text('Envoyer'),
           ),

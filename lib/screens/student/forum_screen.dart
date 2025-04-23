@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:edubridge/theme/app_theme.dart';
 import 'package:edubridge/models/question.dart';
 import 'package:edubridge/widgets/student_question_card.dart';
+import 'package:edubridge/services/question_service.dart';
+import 'package:edubridge/services/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class ForumScreen extends StatefulWidget {
   const ForumScreen({Key? key}) : super(key: key);
@@ -15,65 +18,7 @@ class _ForumScreenState extends State<ForumScreen>
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
-  // Sample data
-  final List<Question> _allQuestions = [
-    Question(
-      id: '1',
-      studentName: 'Sophie Martin',
-      studentAvatar: 'assets/images/student1.jpg',
-      courseTitle: 'Algèbre linéaire',
-      question:
-          'Comment résoudre un système d\'équations linéaires avec la méthode de Gauss?',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      answered: false,
-    ),
-    Question(
-      id: '2',
-      studentName: 'Thomas Dubois',
-      studentAvatar: 'assets/images/student2.jpg',
-      courseTitle: 'Programmation Python',
-      question:
-          'Quelle est la différence entre une liste et un tuple en Python?',
-      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-      answered: false,
-    ),
-    Question(
-      id: '3',
-      studentName: 'Emma Garcia',
-      studentAvatar: 'assets/images/student3.jpg',
-      courseTitle: 'Mécanique quantique',
-      question:
-          'Pouvez-vous expliquer le principe d\'incertitude de Heisenberg?',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      answered: true,
-    ),
-    Question(
-      id: '4',
-      studentName: 'Lucas Bernard',
-      studentAvatar: 'assets/images/student4.jpg',
-      courseTitle: 'Anglais technique',
-      question: 'Comment rédiger un rapport technique en anglais?',
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
-      answered: true,
-    ),
-    Question(
-      id: '5',
-      studentName: 'Chloé Petit',
-      studentAvatar: 'assets/images/student5.jpg',
-      courseTitle: 'Algèbre linéaire',
-      question:
-          'Quelle est la différence entre une matrice inversible et une matrice singulière?',
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      answered: true,
-    ),
-  ];
-
-  List<Question> get _myQuestions =>
-      _allQuestions.where((q) => q.studentName == 'Sophie Martin').toList();
-  List<Question> get _answeredQuestions =>
-      _allQuestions.where((q) => q.answered).toList();
-  List<Question> get _unansweredQuestions =>
-      _allQuestions.where((q) => !q.answered).toList();
+  // Questions will be loaded from QuestionService
 
   @override
   void initState() {
@@ -90,6 +35,14 @@ class _ForumScreenState extends State<ForumScreen>
 
   @override
   Widget build(BuildContext context) {
+    final questionService = Provider.of<QuestionService>(context);
+    final authService = Provider.of<AuthService>(context);
+    final currentUserName = authService.userName ?? 'Étudiant';
+    
+    final allQuestions = questionService.allQuestions;
+    final myQuestions = questionService.getQuestionsByStudent(currentUserName);
+    final answeredQuestions = questionService.answeredQuestions;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Forum de discussion'),
@@ -125,9 +78,9 @@ class _ForumScreenState extends State<ForumScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildQuestionsList(_allQuestions),
-                _buildQuestionsList(_myQuestions),
-                _buildQuestionsList(_answeredQuestions),
+                _buildQuestionsList(allQuestions),
+                _buildQuestionsList(myQuestions),
+                _buildQuestionsList(answeredQuestions),
               ],
             ),
           ),
@@ -188,6 +141,9 @@ class _ForumScreenState extends State<ForumScreen>
   void _showAskQuestionDialog(BuildContext context) {
     final TextEditingController questionController = TextEditingController();
     final TextEditingController courseController = TextEditingController();
+    final questionService = Provider.of<QuestionService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserName = authService.userName ?? 'Étudiant';
 
     showDialog(
       context: context,
@@ -225,8 +181,26 @@ class _ForumScreenState extends State<ForumScreen>
                 child: const Text('Annuler'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  // Add question logic
+                onPressed: () async {
+                  // Validate inputs
+                  if (questionController.text.trim().isEmpty || 
+                      courseController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Veuillez remplir tous les champs'),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                    return;
+                  }
+                  
+                  // Add question to the service
+                  await questionService.addQuestion(
+                    currentUserName,
+                    courseController.text.trim(),
+                    questionController.text.trim()
+                  );
+                  
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

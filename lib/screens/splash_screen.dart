@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:edubridge/screens/auth/login_screen.dart';
+import 'package:edubridge/screens/student/student_dashboard.dart';
+import 'package:edubridge/screens/teacher/teacher_dashboard.dart';
+import 'package:edubridge/screens/admin/admin_dashboard.dart';
 import 'package:edubridge/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:edubridge/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -36,9 +41,37 @@ class _SplashScreenState extends State<SplashScreen>
   _navigateToLogin() async {
     await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Try to load saved authentication data
+      final isAuthenticated = await authService.loadUserData();
+      
+      if (isAuthenticated) {
+        // Navigate to the appropriate dashboard based on user role
+        switch(authService.userType) {
+          case 'admin':
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            );
+            break;
+          case 'teacher':
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const TeacherDashboard()),
+            );
+            break;
+          case 'student':
+          default:
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const StudentDashboard()),
+            );
+            break;
+        }
+      } else {
+        // If not authenticated, go to login screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 
